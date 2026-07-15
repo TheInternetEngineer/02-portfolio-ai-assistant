@@ -51,6 +51,18 @@ def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) 
     return [c.strip() for c in chunks if c.strip()]
 
 
+def compute_url(path: Path, content_dir: Path) -> str:
+    """Map a content file back to the live page it renders as on the site."""
+    rel_parent = path.relative_to(content_dir).parent.name
+    if rel_parent == "projects":
+        return f"/projects/{path.stem}"
+    if rel_parent == "notes":
+        return f"/notes/{path.stem}"
+    if path.stem == "story":
+        return "/story"
+    return "/"
+
+
 def load_documents(content_dir: Path) -> list[dict]:
     """Walk content/ for .mdx files, return frontmatter + cleaned body per file."""
     docs = []
@@ -58,7 +70,7 @@ def load_documents(content_dir: Path) -> list[dict]:
         post = frontmatter.load(path)
         title = post.get("title", path.stem)
         body = strip_jsx(post.content)
-        docs.append({"slug": path.stem, "title": title, "text": body})
+        docs.append({"slug": path.stem, "title": title, "text": body, "url": compute_url(path, content_dir)})
     return docs
 
 
@@ -95,7 +107,7 @@ def main():
                 {
                     "id": f"{doc['slug']}-{i}",
                     "values": embedding,
-                    "metadata": {"text": chunk, "title": doc["title"], "slug": doc["slug"]},
+                    "metadata": {"text": chunk, "title": doc["title"], "slug": doc["slug"], "url": doc["url"]},
                 }
             )
 

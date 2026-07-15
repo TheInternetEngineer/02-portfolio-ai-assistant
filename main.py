@@ -97,6 +97,7 @@ class ChatRequest(BaseModel):
 class Source(BaseModel):
     title: str
     slug: str
+    url: str
 
 
 class ChatResponse(BaseModel):
@@ -133,7 +134,13 @@ def chat(req: ChatRequest):
 
     # Tag each chunk with its slug so the model can tell us which ones it actually used.
     context = "\n\n---\n\n".join(f"[{m['metadata']['slug']}]\n{m['metadata']['text']}" for m in matches)
-    title_by_slug = {m["metadata"]["slug"]: m["metadata"].get("title", m["metadata"]["slug"]) for m in matches}
+    info_by_slug = {
+        m["metadata"]["slug"]: {
+            "title": m["metadata"].get("title", m["metadata"]["slug"]),
+            "url": m["metadata"].get("url", "/"),
+        }
+        for m in matches
+    }
 
     completion = client.chat.completions.create(
         model=CHAT_MODEL,
@@ -154,6 +161,10 @@ def chat(req: ChatRequest):
         answer = completion.choices[0].message.content
         used_slugs = []
 
-    sources = [Source(title=title_by_slug[slug], slug=slug) for slug in used_slugs if slug in title_by_slug]
+    sources = [
+        Source(title=info_by_slug[slug]["title"], slug=slug, url=info_by_slug[slug]["url"])
+        for slug in used_slugs
+        if slug in info_by_slug
+    ]
 
     return ChatResponse(answer=answer, sources=sources)
